@@ -66,34 +66,42 @@ class Task(ft.Column):
 
     def status_changed(self, e):
         self.completed = self.display_task.value
-        self.task_status_change(self)
+        self.task_status_change()
 
     def delete_clicked(self, e):
         self.task_delete(self)
 
 
 class TodoApp(ft.Column):
-    # application's root control is a Column containing all other controls
-    def __init__(self):
+    def __init__(self, saved_tasks):
         super().__init__()
-        self.new_task = ft.TextField(
-            hint_text="What needs to be done?", on_submit=self.add_clicked, expand=True
-        )
+
+        # Inicializar self.tasks com Task instances a partir de saved_tasks
         self.tasks = ft.Column()
+        if saved_tasks:
+            for task in saved_tasks:
+                new_task = Task(task['task_name'], self.task_status_change, self.task_delete)
+                new_task.completed = task['completed']
+                new_task.display_task.value = task['completed']
+                self.tasks.controls.append(new_task)
+        
+        self.new_task = ft.TextField(
+            hint_text="Adiciona tarefa aqui...", on_submit=self.add_clicked, expand=True
+        )
 
         self.filter = ft.Tabs(
             scrollable=False,
             selected_index=0,
             on_change=self.tabs_changed,
-            tabs=[ft.Tab(text="all"), ft.Tab(text="active"), ft.Tab(text="completed")],
+            tabs=[ft.Tab(text="todos"), ft.Tab(text="ativos"), ft.Tab(text="completos")],
         )
 
-        self.items_left = ft.Text("0 items left")
+        self.items_left = ft.Text("Faltam 0 itens")
 
         self.width = 600
         self.controls = [
             ft.Row(
-                [ft.Text(value="Todos", theme_style=ft.TextThemeStyle.HEADLINE_MEDIUM)],
+                [ft.Text(value="Por fazer", theme_style=ft.TextThemeStyle.HEADLINE_MEDIUM)],
                 alignment=ft.MainAxisAlignment.CENTER,
             ),
             ft.Row(
@@ -115,7 +123,7 @@ class TodoApp(ft.Column):
                         controls=[
                             self.items_left,
                             ft.OutlinedButton(
-                                text="Clear completed", on_click=self.clear_clicked
+                                text="Limpar Completos", on_click=self.clear_clicked
                             ),
                         ],
                     ),
@@ -130,13 +138,16 @@ class TodoApp(ft.Column):
             self.new_task.value = ""
             self.new_task.focus()
             self.update()
+            self.save_tasks()
 
-    def task_status_change(self, task):
+    def task_status_change(self):
         self.update()
+        self.save_tasks()
 
     def task_delete(self, task):
         self.tasks.controls.remove(task)
         self.update()
+        self.save_tasks()
 
     def tabs_changed(self, e):
         self.update()
@@ -145,28 +156,43 @@ class TodoApp(ft.Column):
         for task in self.tasks.controls[:]:
             if task.completed:
                 self.task_delete(task)
+        self.save_tasks()
 
     def before_update(self):
         status = self.filter.tabs[self.filter.selected_index].text
         count = 0
         for task in self.tasks.controls:
             task.visible = (
-                status == "all"
-                or (status == "active" and task.completed == False)
-                or (status == "completed" and task.completed)
+                status == "todos"
+                or (status == "ativos" and task.completed == False)
+                or (status == "completos" and task.completed)
             )
             if not task.completed:
                 count += 1
-        self.items_left.value = f"{count} active item(s) left"
+        self.items_left.value = f"Faltam {count} itens"
+
+    def save_tasks(self):
+        tasks = [
+            {"task_name": task.display_task.label, "completed": task.completed}
+            for task in self.tasks.controls
+        ]
+        self.page.client_storage.set("tasks", tasks)
 
 
 def main(page: ft.Page):
-    page.title = "ToDo App"
+    page.title = "Gestor de tarefas"
     page.horizontal_alignment = ft.CrossAxisAlignment.CENTER
     page.scroll = ft.ScrollMode.ADAPTIVE
 
-    # create app control and add it to the page
-    page.add(TodoApp())
+    # Carregar tarefas salvas
+    saved_tasks = page.client_storage.get("tasks")
+    if saved_tasks is None:
+        saved_tasks = []
+
+    app = TodoApp(saved_tasks)
+    
+    # Adicionar app à página
+    page.add(app)
 
 
 ft.app(main)
