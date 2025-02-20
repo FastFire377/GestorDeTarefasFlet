@@ -1,4 +1,6 @@
 import flet as ft
+import os
+from flet.security import encrypt, decrypt
 
 
 class Task(ft.Column):
@@ -78,6 +80,7 @@ class TodoApp(ft.Column):
 
         # Inicializar self.tasks com Task instances a partir de saved_tasks
         self.tasks = ft.Column()
+        self.secret_key = os.getenv("chaveEncriptationsYau")
         if saved_tasks:
             for task in saved_tasks:
                 new_task = Task(task['task_name'], self.task_status_change, self.task_delete)
@@ -101,7 +104,7 @@ class TodoApp(ft.Column):
         self.width = 600
         self.controls = [
             ft.Row(
-                [ft.Text(value="Por fazer", theme_style=ft.TextThemeStyle.HEADLINE_MEDIUM)],
+                [ft.Text(value="Gestor de tarefas", theme_style=ft.TextThemeStyle.HEADLINE_MEDIUM)],
                 alignment=ft.MainAxisAlignment.CENTER,
             ),
             ft.Row(
@@ -172,24 +175,34 @@ class TodoApp(ft.Column):
         self.items_left.value = f"Faltam {count} itens"
 
     def save_tasks(self):
+
         tasks = [
             {"task_name": task.display_task.label, "completed": task.completed}
             for task in self.tasks.controls
         ]
-        self.page.client_storage.set("tasks", tasks)
+        tasks_encrypted = encrypt(tasks, self.secret_key)
+        self.page.client_storage.set("tasks", tasks_encrypted)
 
 
 def main(page: ft.Page):
+
+    secret_key = os.getenv("chaveEncriptationsYau")
     page.title = "Gestor de tarefas"
     page.horizontal_alignment = ft.CrossAxisAlignment.CENTER
     page.scroll = ft.ScrollMode.ADAPTIVE
 
     # Carregar tarefas salvas
     saved_tasks = page.client_storage.get("tasks")
-    if saved_tasks is None:
-        saved_tasks = []
+    print("saved_tasks:", saved_tasks)
+    for task in saved_tasks:
+        task["task_name"] = decrypt(task["task_name"], secret_key)
+    
+    saved_tasks_decrypted = decrypt(saved_tasks, secret_key)
 
-    app = TodoApp(saved_tasks)
+    if saved_tasks_decrypted is None:
+        saved_tasks_decrypted = []
+
+    app = TodoApp(saved_tasks_decrypted)
     
     # Adicionar app à página
     page.add(app)
