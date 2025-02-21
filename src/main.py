@@ -180,27 +180,36 @@ class TodoApp(ft.Column):
             {"task_name": task.display_task.label, "completed": task.completed}
             for task in self.tasks.controls
         ]
-        tasks_encrypted = encrypt(tasks, self.secret_key)
-        self.page.client_storage.set("tasks", tasks_encrypted)
+
+        for task in tasks:
+            task["task_name"] = encrypt(task["task_name"], self.secret_key)
+
+        self.page.client_storage.set("tasks", tasks)
 
 
 def main(page: ft.Page):
 
     secret_key = os.getenv("chaveEncriptationsYau")
+    print("Secret_key:", secret_key)
     page.title = "Gestor de tarefas"
     page.horizontal_alignment = ft.CrossAxisAlignment.CENTER
     page.scroll = ft.ScrollMode.ADAPTIVE
 
-    # Carregar tarefas salvas
-    saved_tasks = page.client_storage.get("tasks")
-    print("saved_tasks:", saved_tasks)
-    for task in saved_tasks:
-        task["task_name"] = decrypt(task["task_name"], secret_key)
+    # Tarefas guardadas em client storage
     
-    saved_tasks_decrypted = decrypt(saved_tasks, secret_key)
+    saved_tasks = page.client_storage.get("tasks")
 
-    if saved_tasks_decrypted is None:
+    print("saved_tasks:", saved_tasks)
+
+    if saved_tasks:
+        for task in saved_tasks:
+            task["task_name"] = decrypt(task["task_name"], secret_key)
+        print("saved_tasks_decrypted", saved_tasks)
+
+        saved_tasks_decrypted = saved_tasks
+    else:
         saved_tasks_decrypted = []
+
 
     app = TodoApp(saved_tasks_decrypted)
     
