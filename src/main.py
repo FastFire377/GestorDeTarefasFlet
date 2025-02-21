@@ -25,12 +25,12 @@ class Task(ft.Column):
                     controls=[
                         ft.IconButton(
                             icon=ft.icons.CREATE_OUTLINED,
-                            tooltip="Edit To-Do",
+                            tooltip="Editar Tarefa",
                             on_click=self.edit_clicked,
                         ),
                         ft.IconButton(
                             ft.icons.DELETE_OUTLINE,
-                            tooltip="Delete To-Do",
+                            tooltip="Remover tarefa",
                             on_click=self.delete_clicked,
                         ),
                     ],
