@@ -1,6 +1,34 @@
 import flet as ft
 import os
+import json
+import webbrowser
+from http.server import HTTPServer, BaseHTTPRequestHandler
+from urllib.parse import urlparse, parse_qs
 from flet.security import encrypt, decrypt
+
+AUTH_URL = "https://github.com/login/oauth/authorize"
+TOKEN_URL = "https://github.com/login/oauth/access_token"
+CLIENT_ID = os.getenv("GITHUB_CLIENT_ID", "Ov23liC7fvBOl99Nbrab")
+CLIENT_SECRET = os.getenv("GITHUB_CLIENT_SECRET", "b0f46f2b54b999f97e4888bce1cce30f3d5ada")
+
+REDIRECT_URI = "http://localhost:8000/callback"
+
+def get_auth_code():
+    class AuthHandler(BaseHTTPRequestHandler):
+        def do_GET(self):
+            query = urlparse(self.path).query
+            params = parse_qs(query)
+            if "code" in params:
+                self.server.auth_code = params["code"][0]
+            self.send_response(200)
+            self.send_header("Content-type", "text/html")
+            self.end_headers()
+            self.wfile.write(b"<h1>Authentication successful. You can close this window.</h1>")
+
+    server = HTTPServer(("localhost", 8000), AuthHandler)
+    webbrowser.open(f"{AUTH_URL}?client_id={CLIENT_ID}&redirect_uri={REDIRECT_URI}")
+    server.handle_request()
+    return server.auth_code
 
 
 class Task(ft.Column):
@@ -77,8 +105,6 @@ class Task(ft.Column):
 class TodoApp(ft.Column):
     def __init__(self, saved_tasks):
         super().__init__()
-
-        # Inicializar self.tasks com Task instances a partir de saved_tasks
         self.tasks = ft.Column()
         self.secret_key = os.getenv("chaveEncriptationsYau")
         if saved_tasks:
@@ -87,7 +113,7 @@ class TodoApp(ft.Column):
                 new_task.completed = task['completed']
                 new_task.display_task.value = task['completed']
                 self.tasks.controls.append(new_task)
-        
+
         self.new_task = ft.TextField(
             hint_text="Adiciona tarefa aqui...", on_submit=self.add_clicked, expand=True
         )
@@ -161,59 +187,31 @@ class TodoApp(ft.Column):
                 self.task_delete(task)
         self.save_tasks()
 
-    def before_update(self):
-        status = self.filter.tabs[self.filter.selected_index].text
-        count = 0
-        for task in self.tasks.controls:
-            task.visible = (
-                status == "todos"
-                or (status == "ativos" and task.completed == False)
-                or (status == "completos" and task.completed)
-            )
-            if not task.completed:
-                count += 1
-        self.items_left.value = f"Faltam {count} itens"
-
     def save_tasks(self):
-
         tasks = [
-            {"task_name": task.display_task.label, "completed": task.completed}
+            {"task_name": encrypt(task.display_task.label, self.secret_key), "completed": task.completed}
             for task in self.tasks.controls
         ]
-
-        for task in tasks:
-            task["task_name"] = encrypt(task["task_name"], self.secret_key)
-
         self.page.client_storage.set("tasks", tasks)
 
 
 def main(page: ft.Page):
+    auth_code = get_auth_code()
+    if not auth_code:
+        page.add(ft.Text("Falha na autenticação. Tente novamente."))
+        return
 
     secret_key = os.getenv("chaveEncriptationsYau")
-    print("Secret_key:", secret_key)
     page.title = "Gestor de tarefas"
     page.horizontal_alignment = ft.CrossAxisAlignment.CENTER
     page.scroll = ft.ScrollMode.ADAPTIVE
 
-    # Tarefas guardadas em client storage
-    
     saved_tasks = page.client_storage.get("tasks")
-
-    print("saved_tasks:", saved_tasks)
-
     if saved_tasks:
         for task in saved_tasks:
             task["task_name"] = decrypt(task["task_name"], secret_key)
-        print("saved_tasks_decrypted", saved_tasks)
 
-        saved_tasks_decrypted = saved_tasks
-    else:
-        saved_tasks_decrypted = []
-
-
-    app = TodoApp(saved_tasks_decrypted)
-    
-    # Adicionar app à página
+    app = TodoApp(saved_tasks if saved_tasks else [])
     page.add(app)
 
 
