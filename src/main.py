@@ -207,12 +207,15 @@ def main(page: ft.Page):
     page.scroll = ft.ScrollMode.ADAPTIVE
 
     saved_tasks = page.client_storage.get("tasks")
-    if saved_tasks:
+
+    if saved_tasks and isinstance(saved_tasks, list):
         for task in saved_tasks:
-            task["task_name"] = decrypt(task["task_name"], secret_key)
+            if isinstance(task, dict) and "task_name" in task:
+                task["task_name"] = decrypt(task["task_name"], secret_key)
+    else:
+        saved_tasks = []
 
     app = TodoApp(saved_tasks if saved_tasks else [])
     page.add(app)
-
 
 ft.app(main)
