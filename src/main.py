@@ -1,6 +1,7 @@
 import flet as ft
 import os
 import json
+import time
 import webbrowser
 from http.server import HTTPServer, BaseHTTPRequestHandler
 from urllib.parse import urlparse, parse_qs
@@ -205,6 +206,8 @@ def main(page: ft.Page):
     page.title = "Gestor de tarefas"
     page.horizontal_alignment = ft.CrossAxisAlignment.CENTER
     page.scroll = ft.ScrollMode.ADAPTIVE
+    page.window_favicon = f"assets/icon.png?{int(time.time())}"
+    page.update()
 
     saved_tasks = page.client_storage.get("tasks")
 
@@ -218,4 +221,4 @@ def main(page: ft.Page):
     app = TodoApp(saved_tasks if saved_tasks else [])
     page.add(app)
 
-ft.app(main)
+ft.app(target=main, assets_dir="assets")
