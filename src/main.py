@@ -1,35 +1,7 @@
 import flet as ft
 import os
-import json
 import time
-import webbrowser
-from http.server import HTTPServer, BaseHTTPRequestHandler
-from urllib.parse import urlparse, parse_qs
 from flet.security import encrypt, decrypt
-
-AUTH_URL = "https://github.com/login/oauth/authorize"
-TOKEN_URL = "https://github.com/login/oauth/access_token"
-CLIENT_ID = os.getenv("GITHUB_CLIENT_ID", "Ov23liC7fvBOl99Nbrab")
-CLIENT_SECRET = os.getenv("GITHUB_CLIENT_SECRET", "b0f46f2b54b999f97e4888bce1cce30f3d5ada")
-
-REDIRECT_URI = "http://localhost:8000/callback"
-
-def get_auth_code():
-    class AuthHandler(BaseHTTPRequestHandler):
-        def do_GET(self):
-            query = urlparse(self.path).query
-            params = parse_qs(query)
-            if "code" in params:
-                self.server.auth_code = params["code"][0]
-            self.send_response(200)
-            self.send_header("Content-type", "text/html")
-            self.end_headers()
-            self.wfile.write(b"<h1>Authentication successful. You can close this window.</h1>")
-
-    server = HTTPServer(("localhost", 8000), AuthHandler)
-    webbrowser.open(f"{AUTH_URL}?client_id={CLIENT_ID}&redirect_uri={REDIRECT_URI}")
-    server.handle_request()
-    return server.auth_code
 
 
 class Task(ft.Column):
@@ -197,11 +169,6 @@ class TodoApp(ft.Column):
 
 
 def main(page: ft.Page):
-    auth_code = get_auth_code()
-    if not auth_code:
-        page.add(ft.Text("Falha na autenticação. Tente novamente."))
-        return
-
     secret_key = os.getenv("chaveEncriptationsYau")
     page.title = "Gestor de tarefas"
     page.horizontal_alignment = ft.CrossAxisAlignment.CENTER
@@ -218,7 +185,15 @@ def main(page: ft.Page):
     else:
         saved_tasks = []
 
+    user_id = os.getenv("REPL_ID")
+    if not user_id:
+        page.add(ft.Text("⚠️ Please log in to Replit to use this application."))
+        return
+
+    page.add(ft.Text(f"✅ Welcome, user {user_id}!"))
+
     app = TodoApp(saved_tasks if saved_tasks else [])
     page.add(app)
+    page.update()
 
-ft.app(target=main, assets_dir="assets")
+ft.app(target=main, view=ft.AppView.WEB_BROWSER, assets_dir="assets")
